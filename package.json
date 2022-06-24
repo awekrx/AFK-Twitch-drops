@@ -1,0 +1,15 @@
+{
+    "dependencies": {
+        "puppeteer": "^13.5.1"
+    },
+    "name": "afktwichdrops",
+    "version": "1.0.0",
+    "main": "index.js",
+    "devDependencies": {},
+    "scripts": {
+        "start": "node index.js"
+    },
+    "author": "",
+    "license": "ISC",
+    "description": ""
+}
