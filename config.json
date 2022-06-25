@@ -4,6 +4,9 @@
     "streamer": "",
     "category": "https://www.twitch.tv/directory/game/The%20Cycle%3A%20Frontier?sort=VIEWER_COUNT&tl=c2542d6d-cd10-4532-919b-3d19f30a768b",
     "game": "The Cycle: Frontier",
-    "onlineInterval": 60000,
-    "dropsInterval": 60000
+    "browsers": false,
+    "autodrops": true,
+    "autonewstreamer": true,
+    "onlineinterval": 60000,
+    "dropsinterval": 60000
 }

@@ -18,7 +18,7 @@ const browserConfig = {
         "--no-sandbox",
         "--disable-setuid-sandbox",
     ],
-    headless: true,
+    headless: !config.browsers,
     executablePath: config.exec,
 };
 
@@ -36,6 +36,7 @@ const userAgent =
     process.env.userAgent ||
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36";
 
+let browser;
 let streamersPage;
 let browsers = [];
 let streamPages = [];
@@ -46,7 +47,7 @@ let checkOnlineInterval;
 let checkDropsInterval;
 
 async function getStreamers() {
-    console.log("✅ Finding streamers...");
+    log("Finding streamers...");
     await streamersPage.waitForSelector(streamersSelector);
     return JSON.parse(
         await streamersPage.evaluate((streamersSelector) => {
@@ -87,40 +88,53 @@ async function openNewStreamer() {
     streamer = await streamers[0];
     for (page of streamPages) {
         page.goto(`http://www.twitch.tv/${streamer}`);
-        await streamPages[i].waitForSelector("video");
-        console.log(`✅ ${users[i]} watch ${streamer} now`);
+        await page.waitForSelector("video");
+        log(`${users[i]} watch ${streamer} now`);
     }
 }
 
 async function onlineInterval() {
-    console.log(`⏰ Checking streamer online...`);
+    log("Checking streamer online...");
     let online = await getOnline(streamPages[0]);
     let game = await getGame(streamPages[0]);
     if (!(online && game == config.game)) {
-        console.log(`🛑 ${streamer} is offline now`);
-        openNewStreamer();
+        log(`${streamer} is offline now`);
+        if (config.autonewstreamer) {
+            openNewStreamer();
+        } else {
+            log("Stream is over, the program is shutting down");
+            process.exit(1);
+        }
     } else {
-        console.log("✅ It's okay, let's look further");
+        log("It's okay, let's look further");
     }
 }
 
 async function dropsInterval() {
+    log("Start check drops...");
     let mainPage = dropsPages[0];
-    mainPage.reload();
+    await mainPage.reload();
     try {
         await mainPage.waitForSelector(dropsSelector, { timeout: 30_000 });
-        for (page of dropsPages) {
-            page.reload();
-            await page.evaluate(() => {
-                buttons = document.querySelectorAll(dropsSelector);
-                for (button of buttons) {
-                    button.click();
-                }
-            });
+        for (let i = 0; i < dropsPages.length; i++) {
+            let page = dropsPages[i];
+            await page.reload();
+            await page.waitForSelector(dropsSelector);
+            try {
+                await page.evaluate((dropsSelector) => {
+                    buttons = document.querySelectorAll(dropsSelector);
+                    for (button of buttons) {
+                        button.click();
+                    }
+                }, dropsSelector);
+            } catch {
+                log(`${users[i]} drops not aviable yet`);
+                break;
+            }
+            log(`${users[i]} drops collected`);
         }
-        console.log("✅ Drops collected");
     } catch {
-        console.log("⏰ Drops not available yet");
+        log("Drops not available yet");
     }
 }
 
@@ -145,7 +159,7 @@ async function addUser(page) {
 }
 
 async function changeQuality(page) {
-    console.log("✅ Сhange quality to 160p");
+    log("Сhange quality to 160p");
     await page.evaluate((qualitySelector) => {
         let qualities = Array.from(document.querySelectorAll(qualitySelector));
         let lowQuality = qualities[qualities.length - 1];
@@ -153,9 +167,8 @@ async function changeQuality(page) {
     }, qualitySelector);
 }
 
-(async function main() {
-    console.log("✅ afktwichdrops running...");
-    let browser = await puppeteer.launch(browserConfig);
+async function startStreamsPage() {
+    browser = await puppeteer.launch(browserConfig);
     streamersPage = await browser.newPage();
     await streamersPage.setUserAgent(userAgent);
     await streamersPage.setCookie(cookie);
@@ -163,11 +176,27 @@ async function changeQuality(page) {
     await streamersPage.setDefaultTimeout(0);
     await streamersPage.goto(config.category);
     await streamersPage.waitForSelector(streamersSelector);
+}
+
+function log(msg) {
+    let time = new Date();
+    let stime = `${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}`;
+    console.log(`[${stime}] ${msg}`);
+}
+
+(async function main() {
+    log("afktwichdrops running...");
+    await startStreamsPage();
 
     if (Array.isArray(config.tokens)) {
         if (!config.streamer) {
-            let streamers = await getStreamers();
-            streamer = streamers[0];
+            if (config.autonewstreamer) {
+                let streamers = await getStreamers();
+                streamer = streamers[0];
+            } else {
+                log("Enable autonewstreamer in config or add a streamer to watch");
+                process.exit(1);
+            }
         } else {
             streamer = config.streamer;
         }
@@ -186,19 +215,27 @@ async function changeQuality(page) {
             await streamPages[i].setDefaultTimeout(0);
             await openDropPage(browsers[i]);
             await addUser(dropsPages[i]);
+            if (users[i] == undefined) {
+                log(`${config.tokens[i]} not working`);
+                process.exit(1);
+            }
             streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
-            await streamPages[i].waitForSelector(qualitySelector);
-            console.log(`✅ ${users[i]} watch ${streamer} now`);
-            await changeQuality(streamPages[i]);
+            await streamPages[i].waitForSelector("video");
+            log(`${users[i]} watch ${streamer} now`);
         }
     }
 
-    try {
-        await streamPages[0].waitForSelector(offlineSelector, { timeout: 30_000 });
-        console.log(`🛑 ${streamer} is offline now`);
-        await openNewStreamer();
-    } catch {}
-
-    checkOnlineInterval = setInterval(onlineInterval, config.onlineInterval);
-    checkDropsInterval = setInterval(dropsInterval, config.dropsInterval);
+    if (config.streamer) {
+        try {
+            await streamPages[0].waitForSelector(offlineSelector, { timeout: 30_000 });
+            log(`${streamer} is offline now`);
+            await openNewStreamer();
+        } catch {}
+    }
+    if (config.autodrops) {
+        log("Starting autodrops check intervals...");
+        checkDropsInterval = setInterval(dropsInterval, config.dropsinterval);
+    }
+    log("Starting online check intervals...");
+    checkOnlineInterval = setInterval(onlineInterval, config.onlineinterval);
 })();
