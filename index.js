@@ -4,6 +4,9 @@ const config = require("./config.json");
 const streamersSelector = "article > div > div > div > div > a > p";
 const offlineSelector = 'div[data-a-target="home-offline-carousel"]';
 const dropsSelector = 'button[data-test-selector="DropsCampaignInProgressRewardPresentation-claim-button"]';
+const onlineSelector = 'a[data-a-target="watch-mode-to-home"]';
+const gameSelector = 'a[data-a-target="stream-game-link"]';
+const qualitySelector = 'div[data-a-target="player-settings-submenu-quality-option"] > label > div';
 
 const browserConfig = {
     args: [
@@ -21,15 +24,11 @@ const browserConfig = {
 
 const cookie = {
     domain: ".twitch.tv",
-    hostOnly: false,
     httpOnly: false,
     name: "auth-token",
     path: "/",
-    sameSite: "no_restriction",
     secure: true,
     session: false,
-    storeId: "0",
-    id: 1,
     value: config.tokens[0],
 };
 
@@ -41,41 +40,42 @@ let streamersPage;
 let browsers = [];
 let streamPages = [];
 let dropsPages = [];
+let users = [];
 let streamer;
 let checkOnlineInterval;
 let checkDropsInterval;
 
 async function getStreamers() {
-    console.log("🔎Finding streamers...");
+    console.log("✅ Finding streamers...");
     await streamersPage.waitForSelector(streamersSelector);
     return JSON.parse(
-        await streamersPage.evaluate(() => {
+        await streamersPage.evaluate((streamersSelector) => {
             const streamers = [];
-            const streamersP = Array.from(document.querySelectorAll("article > div > div > div > div > a > p"));
+            const streamersP = Array.from(document.querySelectorAll(streamersSelector));
             for (const streamer of streamersP) {
                 streamers.push(streamer.innerText);
             }
             return JSON.stringify(streamers);
-        }),
+        }, streamersSelector),
     );
 }
 
 async function getOnline(page) {
     try {
-        await page.waitForSelector('a[data-a-target="watch-mode-to-home"]', { timeout: 30_000 });
-        return await page.evaluate(() => {
-            return document.querySelector('a[data-a-target="watch-mode-to-home"]').innerText;
-        });
+        await page.waitForSelector(onlineSelector, { timeout: 30_000 });
+        return await page.evaluate((onlineSelector) => {
+            return document.querySelector(onlineSelector).innerText;
+        }, onlineSelector);
     } catch {
         return false;
     }
 }
 async function getGame(page) {
     try {
-        await page.waitForSelector('a[data-a-target="stream-game-link"]', { timeout: 30_000 });
-        return await page.evaluate(() => {
-            return document.querySelector('a[data-a-target="stream-game-link"]').innerText;
-        });
+        await page.waitForSelector(gameSelector, { timeout: 30_000 });
+        return await page.evaluate((gameSelector) => {
+            return document.querySelector(gameSelector).innerText;
+        }, gameSelector);
     } catch {
         return false;
     }
@@ -87,16 +87,20 @@ async function openNewStreamer() {
     streamer = await streamers[0];
     for (page of streamPages) {
         page.goto(`http://www.twitch.tv/${streamer}`);
+        await streamPages[i].waitForSelector("video");
+        console.log(`✅ ${users[i]} watch ${streamer} now`);
     }
-    console.log(`👀Watch ${streamer} now`);
 }
 
 async function onlineInterval() {
+    console.log(`⏰ Checking streamer online...`);
     let online = await getOnline(streamPages[0]);
     let game = await getGame(streamPages[0]);
     if (!(online && game == config.game)) {
-        console.log(`🛑${streamer} is offline now`);
+        console.log(`🛑 ${streamer} is offline now`);
         openNewStreamer();
+    } else {
+        console.log("✅ It's okay, let's look further");
     }
 }
 
@@ -104,21 +108,19 @@ async function dropsInterval() {
     let mainPage = dropsPages[0];
     mainPage.reload();
     try {
-        await mainPage.waitForSelector(dropsSelector);
+        await mainPage.waitForSelector(dropsSelector, { timeout: 30_000 });
         for (page of dropsPages) {
             page.reload();
             await page.evaluate(() => {
-                buttons = document.querySelectorAll(
-                    'button[data-test-selector="DropsCampaignInProgressRewardPresentation-claim-button"]',
-                );
+                buttons = document.querySelectorAll(dropsSelector);
                 for (button of buttons) {
                     button.click();
                 }
             });
         }
-        console.log("✅Drops collected");
+        console.log("✅ Drops collected");
     } catch {
-        console.log("⏰Drops not available yet");
+        console.log("⏰ Drops not available yet");
     }
 }
 
@@ -130,8 +132,29 @@ async function openDropPage(browser) {
     await dropsPage.goto(`https://www.twitch.tv/drops/inventory`);
 }
 
+async function addUser(page) {
+    let coockies = await page.cookies();
+    for (let i = 0; i < coockies.length; i++) {
+        let c = coockies[i];
+        if (c.name === "twilight-user") {
+            let start = c.value.indexOf("displayName%22:%22") + "displayName%22:%22".length;
+            let end = c.value.indexOf("%22%2C%22id%");
+            users.push(c.value.substring(start, end));
+        }
+    }
+}
+
+async function changeQuality(page) {
+    console.log("✅ Сhange quality to 160p");
+    await page.evaluate((qualitySelector) => {
+        let qualities = Array.from(document.querySelectorAll(qualitySelector));
+        let lowQuality = qualities[qualities.length - 1];
+        lowQuality.parentElement.parentElement.querySelector("input").click();
+    }, qualitySelector);
+}
+
 (async function main() {
-    console.log("✅afktwichdrops running...");
+    console.log("✅ afktwichdrops running...");
     let browser = await puppeteer.launch(browserConfig);
     streamersPage = await browser.newPage();
     await streamersPage.setUserAgent(userAgent);
@@ -162,17 +185,20 @@ async function openDropPage(browser) {
             await streamPages[i].setDefaultNavigationTimeout(0);
             await streamPages[i].setDefaultTimeout(0);
             await openDropPage(browsers[i]);
-            await streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
-            console.log(`👀Watch ${streamer} now`);
+            await addUser(dropsPages[i]);
+            streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
+            await streamPages[i].waitForSelector(qualitySelector);
+            console.log(`✅ ${users[i]} watch ${streamer} now`);
+            await changeQuality(streamPages[i]);
         }
     }
 
     try {
         await streamPages[0].waitForSelector(offlineSelector, { timeout: 30_000 });
-        console.log(`🛑${streamer} is offline now`);
+        console.log(`🛑 ${streamer} is offline now`);
         await openNewStreamer();
     } catch {}
 
-    checkOnlineInterval = setInterval(onlineInterval, 10_000);
-    checkDropsInterval = setInterval(dropsInterval, 60_000);
+    checkOnlineInterval = setInterval(onlineInterval, config.onlineInterval);
+    checkDropsInterval = setInterval(dropsInterval, config.dropsInterval);
 })();
