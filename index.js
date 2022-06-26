@@ -111,11 +111,13 @@ async function onlineInterval() {
     log("Checking streamer online...");
     let online = await getOnline(streamPages[0]);
     let game = await getGame(streamPages[0]);
-    if (config.autodrops && config.game == game) {
+    if (config.autodrops && !config.game == game) {
         log(`${streamer} changed game, looking for a new streamer`);
+        openNewStreamer();
     } else if (!online) {
         log(`${streamer} is offline now`);
         if (config.autonewstreamer) {
+            log(`${streamer} is offline, looking for a new streamer`);
             openNewStreamer();
         } else {
             log("[Error] Stream is over, the program is shutting down");
