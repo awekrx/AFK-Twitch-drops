@@ -99,8 +99,8 @@ async function openNewStreamer() {
     let streamers = await getStreamers();
     streamer = await streamers[0];
     for (page of streamPages) {
-        checkGoToLoad(() => {
-            page.goto(`http://www.twitch.tv/${streamer}`);
+        checkGoToLoad(async () => {
+            await page.goto(`http://www.twitch.tv/${streamer}`);
         });
         await page.waitForSelector("video");
         log(`${users[i]} watch ${streamer} now`);
@@ -164,10 +164,10 @@ async function openDropPage(browser) {
     await dropsPage.setUserAgent(userAgent);
     await dropsPage.setCookie(cookie);
     try {
-        page.goto(`https://www.twitch.tv/drops/inventory`, { timeout: 10_000 });
+        await dropsPage.goto(`https://www.twitch.tv/drops/inventory`, { timeout: 10_000 });
     } catch {
-        checkGoToLoad(() => {
-            page.goto(`https://www.twitch.tv/drops/inventory`);
+        checkGoToLoad(async () => {
+            await dropsPage.goto(`https://www.twitch.tv/drops/inventory`);
         });
     }
     await dropsPage.waitForSelector(dropPageSelector);
@@ -211,8 +211,8 @@ async function startStreamsPage() {
     await streamersPage.setCookie(cookie);
     await streamersPage.setDefaultNavigationTimeout(0);
     await streamersPage.setDefaultTimeout(0);
-    checkGoToLoad(() => {
-        page.goto(config.category);
+    checkGoToLoad(async () => {
+        await streamersPage.goto(config.category);
     });
     await streamersPage.waitForSelector(streamersSelector);
 }
@@ -264,8 +264,8 @@ function log(msg) {
                 log(`$token {config.tokens[i]} is invalid`);
                 process.exit(1);
             }
-            checkGoToLoad(() => {
-                page.goto(`https://www.twitch.tv/${streamer}`);
+            checkGoToLoad(async () => {
+                await streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
             });
             log(`${users[i]} starting change quality...`);
             await changeQuality(streamPages[i], i);
