@@ -6,7 +6,10 @@ const offlineSelector = 'div[data-a-target="home-offline-carousel"]';
 const dropsSelector = 'button[data-test-selector="DropsCampaignInProgressRewardPresentation-claim-button"]';
 const onlineSelector = 'a[data-a-target="watch-mode-to-home"]';
 const gameSelector = 'a[data-a-target="stream-game-link"]';
-const qualitySelector = 'div[data-a-target="player-settings-submenu-quality-option"] > label > div';
+const qualitySelector = 'div[data-a-target="player-settings-submenu-quality-option"]';
+const dropPageSelector = 'div[data-a-page-loaded-name="DropsInventoryPage"]';
+const settingsButtonSelector = 'button[data-a-target="player-settings-button"]';
+const qualitySettingsButtonSelector = 'button[data-a-target="player-settings-menu-item-quality"]';
 
 const browserConfig = {
     args: [
@@ -45,6 +48,15 @@ let users = [];
 let streamer;
 let checkOnlineInterval;
 let checkDropsInterval;
+
+async function checkGoToLoad(fgoto) {
+    try {
+        fgoto();
+    } catch {
+        log("[Error] Failed to load page, please check your internet connection");
+        process.exit(1);
+    }
+}
 
 async function getStreamers() {
     log("Finding streamers...");
@@ -87,7 +99,9 @@ async function openNewStreamer() {
     let streamers = await getStreamers();
     streamer = await streamers[0];
     for (page of streamPages) {
-        page.goto(`http://www.twitch.tv/${streamer}`);
+        checkGoToLoad(() => {
+            page.goto(`http://www.twitch.tv/${streamer}`);
+        });
         await page.waitForSelector("video");
         log(`${users[i]} watch ${streamer} now`);
     }
@@ -102,39 +116,41 @@ async function onlineInterval() {
         if (config.autonewstreamer) {
             openNewStreamer();
         } else {
-            log("Stream is over, the program is shutting down");
+            log("[Error] Stream is over, the program is shutting down");
             process.exit(1);
         }
     } else {
-        log("It's okay, let's look further");
+        log(`${streamer} is online`);
     }
 }
 
 async function dropsInterval() {
     log("Start check drops...");
-    let mainPage = dropsPages[0];
-    await mainPage.reload();
-    try {
-        await mainPage.waitForSelector(dropsSelector, { timeout: 30_000 });
-        for (let i = 0; i < dropsPages.length; i++) {
-            let page = dropsPages[i];
+    for (let i = 0; i < dropsPages.length; i++) {
+        let page = dropsPages[i];
+        try {
             await page.reload();
-            await page.waitForSelector(dropsSelector);
-            try {
-                await page.evaluate((dropsSelector) => {
-                    buttons = document.querySelectorAll(dropsSelector);
-                    for (button of buttons) {
-                        button.click();
-                    }
-                }, dropsSelector);
-            } catch {
-                log(`${users[i]} drops not aviable yet`);
-                break;
-            }
-            log(`${users[i]} drops collected`);
+            page.waitForSelector(dropsSelector, { timeout: 10_000 })
+                .then(() => {
+                    page.evaluate((dropsSelector) => {
+                        buttons = document.querySelectorAll(dropsSelector);
+                        for (button of buttons) {
+                            button.click();
+                        }
+                    }, dropsSelector)
+                        .then(() => {
+                            log(`${users[i]} drops collected`);
+                        })
+                        .catch(() => {
+                            log(`${users[i]} drops not aviable yet`);
+                        });
+                })
+                .catch(() => {
+                    log(`${users[i]} drops not aviable yet`);
+                });
+        } catch {
+            log(`${users[i]} drops not aviable yet`);
         }
-    } catch {
-        log("Drops not available yet");
     }
 }
 
@@ -143,7 +159,16 @@ async function openDropPage(browser) {
     dropsPages.push(dropsPage);
     await dropsPage.setDefaultNavigationTimeout(0);
     await dropsPage.setDefaultTimeout(0);
-    await dropsPage.goto(`https://www.twitch.tv/drops/inventory`);
+    await dropsPage.setUserAgent(userAgent);
+    await dropsPage.setCookie(cookie);
+    try {
+        page.goto(`https://www.twitch.tv/drops/inventory`, { timeout: 10_000 });
+    } catch {
+        checkGoToLoad(() => {
+            page.goto(`https://www.twitch.tv/drops/inventory`);
+        });
+    }
+    await dropsPage.waitForSelector(dropPageSelector);
 }
 
 async function addUser(page) {
@@ -158,29 +183,58 @@ async function addUser(page) {
     }
 }
 
-async function changeQuality(page) {
-    log("Сhange quality to 160p");
+async function changeQuality(page, i) {
+    await page.waitForSelector(settingsButtonSelector);
+    await page.evaluate((settingsButtonSelector) => {
+        document.querySelector(settingsButtonSelector).click();
+    }, settingsButtonSelector);
+    await page.waitForSelector(qualitySettingsButtonSelector);
+    await page.evaluate((qualitySettingsButtonSelector) => {
+        document.querySelector(qualitySettingsButtonSelector).click();
+    }, qualitySettingsButtonSelector);
+    await page.waitForSelector(qualitySelector);
+    log(`${users[i]} change stream quality to 160p`);
     await page.evaluate((qualitySelector) => {
         let qualities = Array.from(document.querySelectorAll(qualitySelector));
         let lowQuality = qualities[qualities.length - 1];
-        lowQuality.parentElement.parentElement.querySelector("input").click();
+        lowQuality.querySelector("input").click();
     }, qualitySelector);
 }
 
 async function startStreamsPage() {
     browser = await puppeteer.launch(browserConfig);
+
     streamersPage = await browser.newPage();
     await streamersPage.setUserAgent(userAgent);
     await streamersPage.setCookie(cookie);
     await streamersPage.setDefaultNavigationTimeout(0);
     await streamersPage.setDefaultTimeout(0);
-    await streamersPage.goto(config.category);
+    checkGoToLoad(() => {
+        page.goto(config.category);
+    });
     await streamersPage.waitForSelector(streamersSelector);
+}
+
+async function startWatching(i) {
+    cookie.value = config.tokens[i];
+    if (i === 0) {
+        browsers.push(browser);
+        streamPages.push(await browser.newPage());
+    } else {
+        browsers.push(await puppeteer.launch(browserConfig));
+        streamPages.push(await browsers[i].newPage());
+        await streamPages[i].setUserAgent(userAgent);
+        await streamPages[i].setCookie(cookie);
+    }
+    await streamPages[i].setDefaultNavigationTimeout(0);
+    await streamPages[i].setDefaultTimeout(0);
 }
 
 function log(msg) {
     let time = new Date();
-    let stime = `${time.getHours()}:${time.getMinutes()}:${time.getSeconds()}`;
+    let stime = `${time.getHours() < 10 ? "0" + time.getHours() : time.getHours()}:${
+        time.getMinutes() < 10 ? "0" + time.getMinutes() : time.getMinutes()
+    }:${time.getSeconds() < 10 ? "0" + time.getSeconds() : time.getSeconds()}`;
     console.log(`[${stime}] ${msg}`);
 }
 
@@ -194,34 +248,29 @@ function log(msg) {
                 let streamers = await getStreamers();
                 streamer = streamers[0];
             } else {
-                log("Enable autonewstreamer in config or add a streamer to watch");
+                log("[Error] Enable autonewstreamer in config or add a streamer to watch");
                 process.exit(1);
             }
         } else {
             streamer = config.streamer;
         }
         for (let i = 0; i < config.tokens.length; i++) {
-            cookie.value = config.tokens[i];
-            if (i === 0) {
-                browsers.push(browser);
-                streamPages.push(await browser.newPage());
-            } else {
-                browsers.push(await puppeteer.launch(browserConfig));
-                streamPages.push(await browsers[i].newPage());
-                await streamPages[i].setUserAgent(userAgent);
-                await streamPages[i].setCookie(cookie);
-            }
-            await streamPages[i].setDefaultNavigationTimeout(0);
-            await streamPages[i].setDefaultTimeout(0);
+            await startWatching(i);
             await openDropPage(browsers[i]);
             await addUser(dropsPages[i]);
             if (users[i] == undefined) {
-                log(`${config.tokens[i]} not working`);
+                log(`$token {config.tokens[i]} is invalid`);
                 process.exit(1);
             }
-            streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
-            await streamPages[i].waitForSelector("video");
+            checkGoToLoad(() => {
+                page.goto(`https://www.twitch.tv/${streamer}`);
+            });
+            log(`${users[i]} starting change quality...`);
+            await changeQuality(streamPages[i], i);
             log(`${users[i]} watch ${streamer} now`);
+            if (config.browsers) {
+                await streamPages[i].keyboard.press("m");
+            }
         }
     }
 
