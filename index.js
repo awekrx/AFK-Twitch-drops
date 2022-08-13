@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const config = require("./config.json");
 
 const streamersSelector = "article > div > div > div > div > a > p";
@@ -10,6 +10,7 @@ const qualitySelector = 'div[data-a-target="player-settings-submenu-quality-opti
 const dropPageSelector = 'div[data-a-page-loaded-name="DropsInventoryPage"]';
 const settingsButtonSelector = 'button[data-a-target="player-settings-button"]';
 const qualitySettingsButtonSelector = 'button[data-a-target="player-settings-menu-item-quality"]';
+const adultContentSelector = 'button[data-a-target="player-overlay-mature-accept"]';
 
 const browserConfig = {
     args: [
@@ -98,12 +99,14 @@ async function openNewStreamer() {
     streamersPage.reload();
     let streamers = await getStreamers();
     streamer = await streamers[0];
+    let i = 0;
     for (page of streamPages) {
         checkGoToLoad(async () => {
             await page.goto(`http://www.twitch.tv/${streamer}`);
         });
         await page.waitForSelector("video");
         log(`${users[i]} watch ${streamer} now`);
+        i++;
     }
 }
 
@@ -120,7 +123,7 @@ async function onlineInterval() {
             log(`${streamer} is offline, looking for a new streamer`);
             openNewStreamer();
         } else {
-            log("[Error] Stream is over, the program is shutting down");
+            log('[Error] Stream is over. Enable "autonewstreamer" if you don\'t want the program to exit');
             process.exit(1);
         }
     } else {
@@ -205,6 +208,14 @@ async function changeQuality(page, i) {
     }, qualitySelector);
 }
 
+async function checkAdultStream(page, i) {
+    await page.waitForSelector(adultContentSelector, { timeout: 5_000 });
+    await page.evaluate((adultContentSelector) => {
+        document.querySelector(adultContentSelector).click();
+    }, adultContentSelector);
+    log(`${users[i]} adult stream accepted`);
+}
+
 async function startStreamsPage() {
     browser = await puppeteer.launch(browserConfig);
 
@@ -230,6 +241,10 @@ async function startWatching(i) {
         await streamPages[i].setUserAgent(userAgent);
         await streamPages[i].setCookie(cookie);
     }
+    browsers[i].on("disconnected", () => {
+        log(`[Error] Browser closed`);
+        process.exit(1);
+    });
     await streamPages[i].setDefaultNavigationTimeout(0);
     await streamPages[i].setDefaultTimeout(0);
 }
@@ -243,7 +258,11 @@ function log(msg) {
 }
 
 (async function main() {
-    log("afktwichdrops running...");
+    if (!config.tokens) {
+        log("[Error] Before starting, you need to add an authorization token");
+        process.exit(1);
+    }
+    log("AFK-Twtitch-drops running...");
     await startStreamsPage();
 
     if (Array.isArray(config.tokens)) {
@@ -252,7 +271,7 @@ function log(msg) {
                 let streamers = await getStreamers();
                 streamer = streamers[0];
             } else {
-                log("[Error] Enable autonewstreamer in config or add a streamer to watch");
+                log('[Error] Enable "autonewstreamer" in config or add a streamer to watch');
                 process.exit(1);
             }
         } else {
@@ -263,16 +282,30 @@ function log(msg) {
             await openDropPage(browsers[i]);
             await addUser(dropsPages[i]);
             if (users[i] == undefined) {
-                log(`$token {config.tokens[i]} is invalid`);
+                log(`token ${config.tokens[i]} is invalid`);
                 process.exit(1);
             }
             checkGoToLoad(async () => {
                 await streamPages[i].goto(`https://www.twitch.tv/${streamer}`);
             });
-            log(`${users[i]} starting change quality...`);
-            await changeQuality(streamPages[i], i);
+            if (config.adultcontent) {
+                try {
+                    await checkAdultStream(streamPages[i], i);
+                } catch {}
+            } else {
+                log(`[Error] Adult stream is selected when "adultcontent" mode is off`);
+                process.exit(1);
+            }
+            if (config.quality160p) {
+                log(`${users[i]} starting change quality...`);
+                try {
+                    await changeQuality(streamPages[i], i);
+                } catch {
+                    log(`[Error] ${users[i]} Quality change error. Current - automatic quality`);
+                }
+            }
             log(`${users[i]} watch ${streamer} now`);
-            if (config.browsers) {
+            if (config.browsers && config.mutestreamer) {
                 await streamPages[i].keyboard.press("m");
             }
         }
