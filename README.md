@@ -55,6 +55,12 @@ git clone https://github.com/alladon/AFK-Twitch-drops
     "autodrops": true,
     //Automatic find new streamers if the stream is over, the program will end
     "autonewstreamer": true,
+    //Automatic quality change to minimum
+    "quality160p": true,
+    //Automatic mute streamer in open browser mode
+    "mutestreamer": true,
+    //Automatic acceptance of adult streams
+    "adultcontent": true,
     //Time between online checks, more than 60 seconds recommended
     "onlineinterval": 60000,
     //Time between drops checks, more than 60 seconds recommended

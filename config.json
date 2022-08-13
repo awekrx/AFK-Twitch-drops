@@ -7,6 +7,9 @@
     "browsers": false,
     "autodrops": true,
     "autonewstreamer": true,
+    "quality160p": true,
+    "mutestreamer": true,
+    "adultcontent": true,
     "onlineinterval": 60000,
     "dropsinterval": 60000
 }
