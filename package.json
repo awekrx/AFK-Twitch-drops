@@ -8,7 +8,7 @@
     "scripts": {
         "start": "node index.js"
     },
-    "author": "alladon",
+    "author": "awekrx",
     "license": "MIT",
     "description": "A small app based on Puppeteer to watch Twitch and get drops."
 }
