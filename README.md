@@ -17,7 +17,7 @@ A small app based on Puppeteer to watch Twitch and get drops.
 
 ```bash
 #Clone this repository
-git clone https://github.com/alladon/AFK-Twitch-drops
+git clone https://github.com/awekrx/AFK-Twitch-drops.git
 cd AFK-Twitch-drops
 npm install
 ```
