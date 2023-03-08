@@ -1,3 +1,4 @@
+const colors = require('colors');
 const puppeteer = require("puppeteer-core");
 const config = require("./config.json");
 
@@ -11,6 +12,7 @@ const dropPageSelector = 'div[data-a-page-loaded-name="DropsInventoryPage"]';
 const settingsButtonSelector = 'button[data-a-target="player-settings-button"]';
 const qualitySettingsButtonSelector = 'button[data-a-target="player-settings-menu-item-quality"]';
 const adultContentSelector = 'button[data-a-target="player-overlay-mature-accept"]';
+const loginButtonSelector = 'button[data-a-target="login-button"]';
 
 const browserConfig = {
     args: [
@@ -54,12 +56,19 @@ async function checkGoToLoad(fgoto) {
     try {
         fgoto();
     } catch {
-        log("[Error] Failed to load page, please check your internet connection");
+        error("Failed to load page, please check your internet connection");
         process.exit(1);
     }
 }
 
-async function getStreamers() {
+async function getStreamers(i) {
+    try {
+        await streamersPage.waitForSelector(loginButtonSelector, { time_out: 5000 });
+        error(`Authorization error, check token '${config.tokens[i]}'`)
+        process.exit(1)
+    }
+    catch {
+    }
     log("Finding streamers...");
     await streamersPage.waitForSelector(streamersSelector);
     return JSON.parse(
@@ -97,7 +106,7 @@ async function getGame(page) {
 
 async function openNewStreamer() {
     streamersPage.reload();
-    let streamers = await getStreamers();
+    let streamers = await getStreamers(0);
     streamer = await streamers[0];
     let i = 0;
     for (page of streamPages) {
@@ -123,7 +132,7 @@ async function onlineInterval() {
             log(`${streamer} is offline, looking for a new streamer`);
             openNewStreamer();
         } else {
-            log('[Error] Stream is over. Enable "autonewstreamer" if you don\'t want the program to exit');
+            error('Stream is over. Enable "autonewstreamer" if you don\'t want the program to exit');
             process.exit(1);
         }
     } else {
@@ -242,24 +251,33 @@ async function startWatching(i) {
         await streamPages[i].setCookie(cookie);
     }
     browsers[i].on("disconnected", () => {
-        log(`[Error] Browser closed`);
+        error(`Browser closed`);
         process.exit(1);
     });
     await streamPages[i].setDefaultNavigationTimeout(0);
     await streamPages[i].setDefaultTimeout(0);
 }
 
-function log(msg) {
+function time() {
     let time = new Date();
-    let stime = `${time.getHours() < 10 ? "0" + time.getHours() : time.getHours()}:${
-        time.getMinutes() < 10 ? "0" + time.getMinutes() : time.getMinutes()
-    }:${time.getSeconds() < 10 ? "0" + time.getSeconds() : time.getSeconds()}`;
-    console.log(`[${stime}] ${msg}`);
+    return `${time.getHours() < 10 ? "0" + time.getHours() : time.getHours()}:${time.getMinutes() < 10 ? "0" + time.getMinutes() : time.getMinutes()
+        }:${time.getSeconds() < 10 ? "0" + time.getSeconds() : time.getSeconds()}`;
+
 }
 
+function log(msg, error = false) {
+    console.log(`[${time()}]`.green + `${error ? "[Error]" : ""}`.red + ` ${msg}`);
+}
+
+function error(msg) {
+    log(msg, true)
+}
+
+
 (async function main() {
-    if (!config.tokens) {
-        log("[Error] Before starting, you need to add an authorization token");
+    colors.enable();
+    if (config.tokens.length == 0) {
+        error("Before starting, you need to add an authorization token");
         process.exit(1);
     }
     log("AFK-Twtitch-drops running...");
@@ -268,10 +286,10 @@ function log(msg) {
     if (Array.isArray(config.tokens)) {
         if (!config.streamer) {
             if (config.autonewstreamer) {
-                let streamers = await getStreamers();
+                let streamers = await getStreamers(0);
                 streamer = streamers[0];
             } else {
-                log('[Error] Enable "autonewstreamer" in config or add a streamer to watch');
+                error('Enable "autonewstreamer" in config or add a streamer to watch');
                 process.exit(1);
             }
         } else {
@@ -282,7 +300,7 @@ function log(msg) {
             await openDropPage(browsers[i]);
             await addUser(dropsPages[i]);
             if (users[i] == undefined) {
-                log(`token ${config.tokens[i]} is invalid`);
+                error(`token ${config.tokens[i]} is invalid`);
                 process.exit(1);
             }
             checkGoToLoad(async () => {
@@ -291,9 +309,9 @@ function log(msg) {
             if (config.adultcontent) {
                 try {
                     await checkAdultStream(streamPages[i], i);
-                } catch {}
+                } catch { }
             } else {
-                log(`[Error] Adult stream is selected when "adultcontent" mode is off`);
+                error(`Adult stream is selected when "adultcontent" mode is off`);
                 process.exit(1);
             }
             if (config.quality160p) {
@@ -301,7 +319,7 @@ function log(msg) {
                 try {
                     await changeQuality(streamPages[i], i);
                 } catch {
-                    log(`[Error] ${users[i]} Quality change error. Current - automatic quality`);
+                    error(`${users[i]} Quality change error. Current - automatic quality`);
                 }
             }
             log(`${users[i]} watch ${streamer} now`);
@@ -316,7 +334,7 @@ function log(msg) {
             await streamPages[0].waitForSelector(offlineSelector, { timeout: 30_000 });
             log(`${streamer} is offline now`);
             await openNewStreamer();
-        } catch {}
+        } catch { }
     }
     if (config.autodrops) {
         log("Starting autodrops check intervals...");
