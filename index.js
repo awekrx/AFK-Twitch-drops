@@ -63,7 +63,7 @@ async function checkGoToLoad(fgoto) {
 
 async function getStreamers(i) {
     try {
-        await streamersPage.waitForSelector(loginButtonSelector, { time_out: 5000 });
+        await streamersPage.waitForSelector(loginButtonSelector, { timeout: 5_000 });
         error(`Authorization error, check token '${config.tokens[i]}'`)
         process.exit(1)
     }
