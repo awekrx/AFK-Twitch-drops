@@ -1,5 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import config from './config.js';
+import env from './env.js';
 
 
 export default class BotLogic {
@@ -31,7 +32,7 @@ export default class BotLogic {
                 "--disable-setuid-sandbox",
             ],
             headless: !config.browsers,
-            executablePath: config.exec,
+            executablePath: env.CHROME_PATH,
         };
 
         if (proxy)

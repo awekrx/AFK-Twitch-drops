@@ -10,18 +10,33 @@ dotenv.config({ path: '.env' });
 interface ENV {
     TOKENS: string | undefined
     PROXIES: string | undefined
+    STREAMER: string | undefined
+    USE_BROWSERS: string | undefined
+    ONLINE_INTERVAL_MS: number | undefined
+    SCREENSHOT_INTERVAL_MS: number | undefined
+    CHROME_PATH: string | undefined
 }
 
 interface Config {
     TOKENS: string[]
     PROXIES: string[]
+    STREAMER: string
+    USE_BROWSERS: boolean
+    ONLINE_INTERVAL_MS: number | undefined
+    SCREENSHOT_INTERVAL_MS: number | undefined
+    CHROME_PATH: string | undefined
 }
 
 // Loading process.env as ENV interface
 const getConfig = (): ENV => {
     return {
         TOKENS: process.env.TOKENS,
-        PROXIES: process.env.PROXIES
+        PROXIES: process.env.PROXIES,
+        STREAMER: process.env.STREAMER,
+        USE_BROWSERS: process.env.USE_BROWSERS,
+        ONLINE_INTERVAL_MS: Number(process.env.ONLINE_INTERVAL_MS),
+        SCREENSHOT_INTERVAL_MS: Number(process.env.SCREENSHOT_INTERVAL_MS),
+        CHROME_PATH: process.env.CHROME_PATH,
     };
 }
 
@@ -38,13 +53,16 @@ const getSanitizedConfig = (config: ENV): Config => {
         }
     }
 
+    // Converting string to arrays and booleans
     const newConfig = config as any;
     newConfig.TOKENS = config.TOKENS ? config.TOKENS.split(', ') : [];
     newConfig.PROXIES = config.PROXIES ? config.PROXIES.split(', ') : [];
+    newConfig.USE_BROWSERS = strToBool(config.USE_BROWSERS);
 
     return newConfig as Config;
 };
 
+const strToBool = (str: string | undefined): boolean => str === 'true'.toLowerCase();
 
 
 const config = getConfig();

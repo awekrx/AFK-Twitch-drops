@@ -16,7 +16,7 @@ const selectors = {
     offline,
     drops,
     online,
-    game,
+    // game,
     quality,
     dropPage,
     settingsButton,
