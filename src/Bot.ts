@@ -3,6 +3,8 @@ import config from "./config.js";
 import logging from "improved-logging";
 import puppeteer from "puppeteer-core";
 import selectors from "./selectors.js";
+import fs from "fs";
+
 
 
 export default class Bot extends BotLogic {
@@ -14,8 +16,9 @@ export default class Bot extends BotLogic {
 
     async start() {
         // Start bot
-        // await this.startStreamsPage();
+        logging.info("Starting bot... For streamer: " + config.streamer);
         await this.startWatching();
+        logging.info("Setting username...");
         await this.setUsername(this.streamPage);
 
         this.checkUsername();
@@ -48,8 +51,27 @@ export default class Bot extends BotLogic {
         this.checkOnlineInterval =
             setInterval(() => this.onlineInterval(context), config.onlineinterval);
 
+        // screenshot interval
+        setInterval(() => this.screenshotInterval(context), config.screenshotInterval)
         return this;
     }
+
+    async screenshotInterval(context: any) {
+        // empty and ensure folder
+        if (fs.existsSync("./screenshots"))
+            fs.rmdirSync("./screenshots", { recursive: true });
+        fs.mkdirSync("./screenshots");
+
+        // prepare to screenshot: zoom out the chrome page
+        await context.streamPage.evaluate(() => {
+            // @ts-ignore
+            document.body.style.zoom = "65%";
+        });
+
+        // make screenshot
+        context.streamPage.screenshot({ path: `./screenshots/${context.user}.png` });
+    }
+
 
 
     async getOnline(page: puppeteer.Page) {
@@ -74,7 +96,7 @@ export default class Bot extends BotLogic {
             process.exit(1);
 
         } else {
-            logging.success(`${config.streamer} is online`);
+            logging.info(`${config.streamer} is online`);
         }
     }
 
@@ -111,7 +133,7 @@ export default class Bot extends BotLogic {
 
     async checkAdultStream() {
         await this.streamPage.waitForSelector(selectors.adultContent, { timeout: 5_000 });
-        await this.streamPage.evaluate((adultContentSelector) => {
+        await this.streamPage.evaluate((adultContentSelector: string) => {
             const obj = document.querySelector(adultContentSelector);
             if (!obj) return;
             // @ts-ignore
@@ -151,18 +173,18 @@ export default class Bot extends BotLogic {
         const page = this.streamPage;
         try {
             await page.waitForSelector(selectors.settingsButton, { timeout: 5_000 });
-            await page.evaluate((settingsButtonSelector) => {
+            await page.evaluate((settingsButtonSelector: string) => {
                 // @ts-ignore
                 document.querySelector(settingsButtonSelector).click();
             }, selectors.settingsButton);
             await page.waitForSelector(selectors.qualitySettingsButton, { timeout: 5_000 });
-            await page.evaluate((qualitySettingsButtonSelector) => {
+            await page.evaluate((qualitySettingsButtonSelector: string) => {
                 // @ts-ignore
                 document.querySelector(qualitySettingsButtonSelector).click();
             }, selectors.qualitySettingsButton);
             await page.waitForSelector(selectors.quality, { timeout: 5_000 });
             logging.info(`${this.user} change stream quality to 160p`);
-            await page.evaluate((qualitySelector) => {
+            await page.evaluate((qualitySelector: string) => {
                 let qualities = Array.from(document.querySelectorAll(qualitySelector));
                 let lowQuality = qualities[qualities.length - 1];
                 // @ts-ignore

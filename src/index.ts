@@ -1,5 +1,6 @@
-import Bot from './Bot.js'
 import proxyChain from 'proxy-chain'
+import logging from 'improved-logging'
+import Bot from './Bot.js'
 import env from './env.js'
 
 
@@ -13,4 +14,4 @@ for (let i = 0; i < smallestArray; i++) {
     await new Bot(tokens[i], proxy).start()
 }
 
-console.log('All bots started!')
+logging.success('All bots started!')
