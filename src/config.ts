@@ -3,7 +3,7 @@ const config = {
     "streamer": "ramsyl",
     "category": "https://www.twitch.tv/directory/game/Dota%202",
     "game": "Dota 2",
-    "browsers": false,
+    "browsers": true,
     "autodrops": false,
     "autonewstreamer": false,
     "quality160p": true,

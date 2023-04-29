@@ -16,11 +16,9 @@ export default class Bot extends BotLogic {
         // Start bot
         // await this.startStreamsPage();
         await this.startWatching();
+        await this.setUsername(this.streamPage);
 
-        this.checkGoToLoad(async () => {
-            await this.streamPage.goto(`https://www.twitch.tv/${config.streamer}`);
-            // await this.streamPage.goto(`http://www.icanhazip.com`);
-        });
+        this.checkUsername();
 
         if (config.adultcontent) {
             try {
@@ -38,10 +36,10 @@ export default class Bot extends BotLogic {
                 logging.error(`${this.user} Quality change error. Current - automatic quality`);
             }
         }
+
         logging.info(`${this.user} watch ${config.streamer} now`);
-        if (config.browsers && config.mutestreamer) {
+        if (config.browsers && config.mutestreamer)
             await this.streamPage.keyboard.press("m");
-        }
 
         return this;
     }
@@ -79,6 +77,15 @@ export default class Bot extends BotLogic {
         });
         await this.streamPage.setDefaultNavigationTimeout(0);
         await this.streamPage.setDefaultTimeout(0);
+
+
+        this.checkGoToLoad(async () => {
+            await this.streamPage.goto(`https://www.twitch.tv/${config.streamer}`);
+            // await this.streamPage.goto(`http://www.icanhazip.com`);
+        });
+
+        // give time to load
+        await this.streamPage.waitForSelector(selectors.settingsButton, { timeout: 10_000 })
     }
 
     async checkAdultStream() {
@@ -90,6 +97,32 @@ export default class Bot extends BotLogic {
             obj.click();
         }, selectors.adultContent);
         logging.info(`${this.user} adult stream accepted`);
+    }
+
+    /**
+     * Set bot username. Mined from cookies
+     * @param page 
+     */
+    async setUsername(page: puppeteer.Page) {
+        let cookies = await page.cookies();
+        for (let i = 0; i < cookies.length; i++) {
+            let c = cookies[i];
+            if (c.name === "twilight-user") {
+                let start = c.value.indexOf("displayName%22:%22") + "displayName%22:%22".length;
+                let end = c.value.indexOf("%22%2C%22id%");
+                this.user = c.value.substring(start, end)
+            }
+        }
+    }
+
+    /**
+     * Check if username is set, if not - exit
+     */
+    checkUsername() {
+        if (!this.user) {
+            logging.error("Token is invalid: username not found");
+            process.exit(1);
+        }
     }
 
 
