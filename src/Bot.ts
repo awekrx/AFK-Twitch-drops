@@ -48,8 +48,7 @@ export default class Bot extends BotLogic {
         logging.info("Starting online check intervals...");
         await this.onlineInterval(this);
         const context = this;
-        this.checkOnlineInterval =
-            setInterval(() => this.onlineInterval(context), config.onlineinterval);
+        setInterval(() => this.onlineInterval(context), config.onlineinterval);
 
         // screenshot interval
         setInterval(() => this.screenshotInterval(context), config.screenshotInterval)
