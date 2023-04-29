@@ -1,7 +1,7 @@
 import env from "./env.js";
 
 const config = {
-    "streamer": "obc9hk4",
+    "streamer": env.STREAMER,
     "browsers": env.USE_BROWSERS,
     "quality160p": true,
     "adultcontent": true,
