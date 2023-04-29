@@ -38,24 +38,45 @@ export default class Bot extends BotLogic {
         }
 
         logging.info(`${this.user} watch ${config.streamer} now`);
-        if (config.browsers && config.mutestreamer)
+        if (config.browsers)
             await this.streamPage.keyboard.press("m");
+
+
+        logging.info("Starting online check intervals...");
+        await this.onlineInterval(this);
+        const context = this;
+        this.checkOnlineInterval =
+            setInterval(() => this.onlineInterval(context), config.onlineinterval);
 
         return this;
     }
 
 
-    // async startStreamsPage() {
-    //     this.browser = await puppeteer.launch(this.browserConfig);
+    async getOnline(page: puppeteer.Page) {
+        try {
+            await page.waitForSelector(selectors.online, { timeout: 10_000 });
+            return await page.evaluate((onlineSelector) => {
+                // @ts-ignore
+                return document.querySelector(onlineSelector).innerText;
+            }, selectors.online);
+        } catch {
+            return false;
+        }
+    }
 
-    //     this.streamersPage = await this.browser.newPage();
-    //     await this.streamersPage.setUserAgent(config.userAgent);
-    //     await this.streamersPage.setCookie(this.cookie);
-    //     await this.streamersPage.setDefaultNavigationTimeout(0);
-    //     await this.streamersPage.setDefaultTimeout(0);
-    //     this.checkGoToLoad(() => this.streamersPage.goto(config.category));
-    //     await this.streamersPage.waitForSelector(selectors.streamers);
-    // }
+
+    async onlineInterval(context: any) {
+        logging.info("Checking streamer online...");
+        let online = await context.getOnline(context.streamPage);
+        if (!online) {
+            logging.warn(`${config.streamer} is offline now`);
+            logging.error('Stream is over. Please restart bot');
+            process.exit(1);
+
+        } else {
+            logging.success(`${config.streamer} is online`);
+        }
+    }
 
     async checkGoToLoad(fgoto: Function) {
         try {
@@ -128,24 +149,28 @@ export default class Bot extends BotLogic {
 
     async changeQuality() {
         const page = this.streamPage;
-        await page.waitForSelector(selectors.settingsButton);
-        await page.evaluate((settingsButtonSelector) => {
-            // @ts-ignore
-            document.querySelector(settingsButtonSelector).click();
-        }, selectors.settingsButton);
-        await page.waitForSelector(selectors.qualitySettingsButton);
-        await page.evaluate((qualitySettingsButtonSelector) => {
-            // @ts-ignore
-            document.querySelector(qualitySettingsButtonSelector).click();
-        }, selectors.qualitySettingsButton);
-        await page.waitForSelector(selectors.quality);
-        logging.info(`${this.user} change stream quality to 160p`);
-        await page.evaluate((qualitySelector) => {
-            let qualities = Array.from(document.querySelectorAll(qualitySelector));
-            let lowQuality = qualities[qualities.length - 1];
-            // @ts-ignore
-            lowQuality.querySelector("input").click();
-        }, selectors.quality);
+        try {
+            await page.waitForSelector(selectors.settingsButton, { timeout: 5_000 });
+            await page.evaluate((settingsButtonSelector) => {
+                // @ts-ignore
+                document.querySelector(settingsButtonSelector).click();
+            }, selectors.settingsButton);
+            await page.waitForSelector(selectors.qualitySettingsButton, { timeout: 5_000 });
+            await page.evaluate((qualitySettingsButtonSelector) => {
+                // @ts-ignore
+                document.querySelector(qualitySettingsButtonSelector).click();
+            }, selectors.qualitySettingsButton);
+            await page.waitForSelector(selectors.quality, { timeout: 5_000 });
+            logging.info(`${this.user} change stream quality to 160p`);
+            await page.evaluate((qualitySelector) => {
+                let qualities = Array.from(document.querySelectorAll(qualitySelector));
+                let lowQuality = qualities[qualities.length - 1];
+                // @ts-ignore
+                lowQuality.querySelector("input").click();
+            }, selectors.quality);
+        } catch {
+            logging.error(`${this.user} Quality change error. Current - automatic quality`);
+        }
     }
 
 }
