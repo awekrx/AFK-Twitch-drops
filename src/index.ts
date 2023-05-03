@@ -29,6 +29,25 @@ function getRunningBots() {
     return bots.filter(bot => bot.status === 'running')
 }
 
+
+app.post('/bots/start', (req, res) => {
+    bots.forEach(bot => {
+        if (!bot.isRunning()) {
+            bot.start()
+        }
+    })
+    res.send('Started all bots')
+})
+
+app.post('/bots/stop', (req, res) => {
+    bots.forEach(bot => {
+        if (bot.isRunning()) {
+            bot.stop()
+        }
+    })
+    res.send('Stopped all bots')
+})
+
 app.post('/bots/chat/:message', (req: Request, res: Response) => {
     // const message = req.params.message
     // const randomBot = getRunningBots()[Math.floor(Math.random() * bots.length)]
@@ -52,8 +71,9 @@ async function spawnBots() {
     logging.important(`Starting ${smallestArray} bots...`)
     for (let i = 0; i < smallestArray; i++) {
         const proxy = await getAnonProxy(proxies, i)
-        const newBot = await new Bot(tokens[i], proxy).start()
+        const newBot = new Bot(tokens[i], proxy)
         bots.push(newBot)
+        await newBot.start()
     }
     logging.success('All bots started!')
 }

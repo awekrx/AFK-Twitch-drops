@@ -11,6 +11,8 @@ type TBotStatus = "running" | "stopped" | "streamerOffline" | "tokenInvalid";
 export default class Bot extends BotLogic {
 
     status: TBotStatus = "stopped";
+    onlineIntervalID: NodeJS.Timeout | null = null;
+    screenshotIntervalID: NodeJS.Timeout | null = null;
 
     constructor(token: string, proxy?: string) {
         super(token, proxy);
@@ -48,14 +50,13 @@ export default class Bot extends BotLogic {
         if (config.browsers)
             await this.streamPage.keyboard.press("m");
 
-
         logging.info("Starting online check intervals...");
         await this.onlineInterval(this);
         const context = this;
-        setInterval(() => this.onlineInterval(context), config.onlineinterval);
+        this.onlineIntervalID = setInterval(() => this.onlineInterval(context), config.onlineinterval);
 
         // screenshot interval
-        setInterval(() => this.screenshotInterval(context), config.screenshotInterval)
+        this.screenshotIntervalID = setInterval(() => this.screenshotInterval(context), config.screenshotInterval)
         return this;
     }
 
@@ -77,7 +78,18 @@ export default class Bot extends BotLogic {
         context.streamPage.screenshot({ path: screenPath });
     }
 
+    isRunning() {
+        return this.status === "running";
+    }
 
+    async stop() {
+        this.status = "stopped";
+        logging.info("Stopping bot...");
+        await this.browser.close();
+        clearInterval(this.onlineIntervalID!);
+        clearInterval(this.screenshotIntervalID!);
+        logging.info("Bot stopped");
+    }
 
     async getOnline(page: puppeteer.Page) {
         try {
@@ -120,8 +132,8 @@ export default class Bot extends BotLogic {
         await this.streamPage.setUserAgent(config.userAgent);
         await this.streamPage.setCookie(this.cookie);
         this.browser.on("disconnected", () => {
-            logging.error(`Browser closed`);
-            process.exit(1);
+            logging.error(`Browser closed, hope u wanted it`);
+            // process.exit(1);
         });
         await this.streamPage.setDefaultNavigationTimeout(0);
         await this.streamPage.setDefaultTimeout(0);
@@ -201,21 +213,22 @@ export default class Bot extends BotLogic {
     }
 
     async chat(message: string) {
-        const page = this.streamPage;
-        try {
-            await page.waitForSelector(selectors.chat, { timeout: 5_000 });
-            await page.evaluate((chatSelector: string) => {
-                const expandChatSelector = '#\\35 106a64dfb83e348e5056ec3f0e8eb65 > div > div.InjectLayout-sc-1i43xsx-0.kTZbIF.right-column__toggle-visibility.toggle-visibility__right-column > div > button';
-                // @ts-ignore
-                document.querySelector(expandChatSelector).click();
-                // @ts-ignore
-                document.querySelector(chatSelector).textContent = message;
-                // @ts-ignore
-                document.querySelector(chatSelector)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-            }, selectors.chat);
-        } catch {
-            logging.error(`${this.user} Chat open error`);
-        }
+        return 'Not implemented';
+        // const page = this.streamPage;
+        // try {
+        //     await page.waitForSelector(selectors.chat, { timeout: 5_000 });
+        //     await page.evaluate((chatSelector: string) => {
+        //         const expandChatSelector = '#\\35 106a64dfb83e348e5056ec3f0e8eb65 > div > div.InjectLayout-sc-1i43xsx-0.kTZbIF.right-column__toggle-visibility.toggle-visibility__right-column > div > button';
+        //         // @ts-ignore
+        //         document.querySelector(expandChatSelector).click();
+        //         // @ts-ignore
+        //         document.querySelector(chatSelector).textContent = message;
+        //         // @ts-ignore
+        //         document.querySelector(chatSelector)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        //     }, selectors.chat);
+        // } catch {
+        //     logging.error(`${this.user} Chat open error`);
+        // }
     }
 
 }
