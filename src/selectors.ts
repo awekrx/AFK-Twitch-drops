@@ -22,7 +22,7 @@ const selectors = {
     settingsButton,
     qualitySettingsButton,
     adultContent,
-    loginButton
+    loginButton,
 };
 
 export default selectors;

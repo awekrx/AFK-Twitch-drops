@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Bot Control Panel</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function sendMessage() {
+            const message = $('#message').val()
+            console.log('Sending message: ' + message)
+            $.post('/bots/chat/' + message, function (data, status) {
+                alert(data)
+            })
+        }
+    </script>
+</head>
+
+<body>
+    <h1>Bot Control Panel</h1>
+    <p id="running-bots"></p>
+    <label for="message">Message:</label>
+    <input type="text" id="message" name="message">
+    <button onclick="sendMessage()">Send</button>
+    <script>
+        $.get('/bots/running', function (data) {
+            $('#running-bots').text(data)
+        })
+    </script>
+</body>
+
+</html>

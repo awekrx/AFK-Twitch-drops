@@ -6,8 +6,11 @@ import selectors from "./selectors.js";
 import fs from "fs";
 
 
+type TBotStatus = "running" | "stopped" | "streamerOffline" | "tokenInvalid";
 
 export default class Bot extends BotLogic {
+
+    status: TBotStatus = "stopped";
 
     constructor(token: string, proxy?: string) {
         super(token, proxy);
@@ -40,6 +43,7 @@ export default class Bot extends BotLogic {
             }
         }
 
+        this.status = "running";
         logging.info(`${this.user} watch ${config.streamer} now`);
         if (config.browsers)
             await this.streamPage.keyboard.press("m");
@@ -57,9 +61,8 @@ export default class Bot extends BotLogic {
 
     async screenshotInterval(context: any) {
         // empty and ensure folder
-        if (fs.existsSync("./screenshots"))
-            fs.rmdirSync("./screenshots", { recursive: true });
-        fs.mkdirSync("./screenshots");
+        if (!fs.existsSync("./screenshots"))
+            fs.mkdirSync("./screenshots");
 
         // prepare to screenshot: zoom out the chrome page
         await context.streamPage.evaluate(() => {
@@ -68,7 +71,10 @@ export default class Bot extends BotLogic {
         });
 
         // make screenshot
-        context.streamPage.screenshot({ path: `./screenshots/${context.user}.png` });
+        const screenPath = `./screenshots/${context.user}.png`
+        if (fs.existsSync(screenPath))
+            fs.rmSync(screenPath, { recursive: true });
+        context.streamPage.screenshot({ path: screenPath });
     }
 
 
@@ -91,8 +97,8 @@ export default class Bot extends BotLogic {
         let online = await context.getOnline(context.streamPage);
         if (!online) {
             logging.warn(`${config.streamer} is offline now`);
-            logging.error('Stream is over. Please restart bot');
-            process.exit(1);
+            logging.error('Stream is over');
+            context.status = "streamerOffline";
 
         } else {
             logging.info(`${config.streamer} is online`);
@@ -163,7 +169,7 @@ export default class Bot extends BotLogic {
     checkUsername() {
         if (!this.user) {
             logging.error("Token is invalid: username not found");
-            process.exit(1);
+            this.status = "tokenInvalid";
         }
     }
 
@@ -191,6 +197,24 @@ export default class Bot extends BotLogic {
             }, selectors.quality);
         } catch {
             logging.error(`${this.user} Quality change error. Current - automatic quality`);
+        }
+    }
+
+    async chat(message: string) {
+        const page = this.streamPage;
+        try {
+            await page.waitForSelector(selectors.chat, { timeout: 5_000 });
+            await page.evaluate((chatSelector: string) => {
+                const expandChatSelector = '#\\35 106a64dfb83e348e5056ec3f0e8eb65 > div > div.InjectLayout-sc-1i43xsx-0.kTZbIF.right-column__toggle-visibility.toggle-visibility__right-column > div > button';
+                // @ts-ignore
+                document.querySelector(expandChatSelector).click();
+                // @ts-ignore
+                document.querySelector(chatSelector).textContent = message;
+                // @ts-ignore
+                document.querySelector(chatSelector)?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+            }, selectors.chat);
+        } catch {
+            logging.error(`${this.user} Chat open error`);
         }
     }
 

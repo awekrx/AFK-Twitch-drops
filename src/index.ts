@@ -1,18 +1,60 @@
-import getAnonProxy from './anonProxy.js'
+import express, { Request, Response } from 'express'
 import logging from 'improved-logging'
+import fs from 'fs'
+import path from 'path'
+import getAnonProxy from './anonProxy.js'
 import Bot from './Bot.js'
 import env from './env.js'
 
-
 const tokens: string[] = env.TOKENS
 const proxies: string[] = env.PROXIES
+let bots: Bot[] = []
 
-const smallestArray = Math.min(tokens.length, proxies.length + 1) // +1 because we don't need proxy for first bot
-logging.important(`Starting ${smallestArray} bots...`)
+const app = express()
 
-for (let i = 0; i < smallestArray; i++) {
-    const proxy = await getAnonProxy(proxies, i)
-    await new Bot(tokens[i], proxy).start()
+app.use(express.json())
+
+app.get('/', (req: Request, res: Response) => {
+    const filepath = path.join('resources', 'index.html')
+    const file = fs.readFileSync(filepath, 'utf8')
+    res.send(file)
+})
+
+app.get('/bots/running', (req: Request, res: Response) => {
+    const runningBots = getRunningBots().length
+    res.send(`Currently running ${runningBots} bots`)
+})
+
+function getRunningBots() {
+    return bots.filter(bot => bot.status === 'running')
 }
 
-logging.success('All bots started!')
+app.post('/bots/chat/:message', (req: Request, res: Response) => {
+    // const message = req.params.message
+    // const randomBot = getRunningBots()[Math.floor(Math.random() * bots.length)]
+    // if (!message) return res.send('No message provided')
+    // if (!randomBot) return res.send('No bots running')
+    // randomBot.chat(message)
+    // logging.info(`Chat function executed on bots with message: ${message}`)
+    // res.send('Chat function executed on bots with message: ' + message)
+    res.send('Not implemented yet')
+})
+
+app.listen(3000, () => {
+    console.log('Server running on port 3000')
+    spawnBots();
+})
+
+
+
+const smallestArray = Math.min(tokens.length, proxies.length + 1) // +1 because we don't need proxy for first bot
+async function spawnBots() {
+    logging.important(`Starting ${smallestArray} bots...`)
+    for (let i = 0; i < smallestArray; i++) {
+        const proxy = await getAnonProxy(proxies, i)
+        const newBot = await new Bot(tokens[i], proxy).start()
+        bots.push(newBot)
+    }
+    logging.success('All bots started!')
+}
+
