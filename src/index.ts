@@ -2,12 +2,12 @@ import express, { Request, Response } from 'express'
 import logging from 'improved-logging'
 import fs from 'fs'
 import path from 'path'
-import getAnonProxy from './anonProxy.js'
+import getProxies, { getAnonProxy } from './Proxies.js'
 import Bot from './Bot.js'
 import env from './env.js'
 
 const tokens: string[] = env.TOKENS
-const proxies: string[] = env.PROXIES
+const proxies: string[] = await getProxies()
 let bots: Bot[] = []
 
 const app = express()
@@ -39,12 +39,8 @@ app.post('/bots/start', (req, res) => {
     res.send('Started all bots')
 })
 
-app.post('/bots/stop', (req, res) => {
-    bots.forEach(bot => {
-        if (bot.isRunning()) {
-            bot.stop()
-        }
-    })
+app.post('/bots/stop', async (req, res) => {
+    await stopBots()
     res.send('Stopped all bots')
 })
 
@@ -59,19 +55,30 @@ app.post('/bots/chat/:message', (req: Request, res: Response) => {
     res.send('Not implemented yet')
 })
 
+
 app.listen(3000, () => {
-    console.log('Server running on port 3000')
-    spawnBots();
+    logging.info('Server running on port 3000')
+    respawnBots();
 })
 
 
+async function stopBots() {
+    logging.important('Stopping all bots...')
+    for (let i = 0; i < bots.length; i++) {
+        const bot = bots[i]
+        if (bot.isRunning())
+            await bot.stop()
+    }
+    bots = []
+    logging.success('All bots stopped!')
+}
 
 const smallestArray = Math.min(tokens.length, proxies.length + 1) // +1 because we don't need proxy for first bot
-async function spawnBots() {
-    logging.important(`Starting ${smallestArray} bots...`)
+async function respawnBots() {
+    logging.important(`Spawning ${smallestArray} bots...`)
     for (let i = 0; i < smallestArray; i++) {
         const proxy = await getAnonProxy(proxies, i)
-        const newBot = new Bot(tokens[i], proxy)
+        const newBot = new Bot(tokens[i], proxy, streamer)
         bots.push(newBot)
         await newBot.start()
     }
