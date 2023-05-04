@@ -78,7 +78,7 @@ async function respawnBots() {
     logging.important(`Spawning ${smallestArray} bots...`)
     for (let i = 0; i < smallestArray; i++) {
         const proxy = await getAnonProxy(proxies, i)
-        const newBot = new Bot(tokens[i], proxy, streamer)
+        const newBot = new Bot(tokens[i], proxy)
         bots.push(newBot)
         await newBot.start()
     }
