@@ -7,7 +7,7 @@ import Bot from './Bot.js'
 import env from './env.js'
 
 const tokens: string[] = env.TOKENS
-const proxies: string[] = await getProxies()
+const proxies: string[] = await getProxies() || env.PROXIES
 let bots: Bot[] = []
 
 const app = express()

@@ -9,7 +9,7 @@ dotenv.config({ path: '.env' });
 // as someone could skip these varibales or not setup a .env file at all
 interface ENV {
     TOKENS: string | undefined
-    // PROXIES: string | undefined
+    PROXIES: string | undefined
     PROXY_API_KEY: string | undefined
     STREAMER: string | undefined
     USE_BROWSERS: string | undefined
@@ -20,7 +20,7 @@ interface ENV {
 
 interface Config {
     TOKENS: string[]
-    // PROXIES: string[]
+    PROXIES: string[]
     PROXY_API_KEY: string
     STREAMER: string
     USE_BROWSERS: boolean
@@ -33,7 +33,7 @@ interface Config {
 const getConfig = (): ENV => {
     return {
         TOKENS: process.env.TOKENS,
-        // PROXIES: process.env.PROXIES,
+        PROXIES: process.env.PROXIES,
         PROXY_API_KEY: process.env.PROXY_API_KEY,
         STREAMER: process.env.STREAMER,
         USE_BROWSERS: process.env.USE_BROWSERS,
@@ -59,7 +59,7 @@ const getSanitizedConfig = (config: ENV): Config => {
     // Converting string to arrays and booleans
     const newConfig = config as any;
     newConfig.TOKENS = config.TOKENS ? config.TOKENS.split(', ') : [];
-    // newConfig.PROXIES = config.PROXIES ? config.PROXIES.split(', ') : [];
+    newConfig.PROXIES = config.PROXIES ? config.PROXIES.split(', ') : [];
     newConfig.USE_BROWSERS = strToBool(config.USE_BROWSERS);
 
     return newConfig as Config;

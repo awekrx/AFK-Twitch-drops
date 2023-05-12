@@ -11,16 +11,21 @@ export async function getAnonProxy(proxies: string[], i: number): Promise<string
     return anonProxy
 }
 
-export default async function getProxies(): Promise<string[]> {
-    const PROXY_API_KEY = env.PROXY_API_KEY
-    const url = `https://proxy-seller.io/personal/api/v1/${PROXY_API_KEY}/proxy/list/`
+export default async function getProxies(): Promise<string[] | undefined> {
+    try {
+        const PROXY_API_KEY = env.PROXY_API_KEY
+        const url = `https://proxy-seller.io/personal/api/v1/${PROXY_API_KEY}/proxy/list/`
 
-    const response = await axios(url)
-    const ipv4ProxiesArray = response.data.data.ipv4
-    const proxies = ipv4ProxiesArray.map((proxy: any) => {
-        //http://services0D3dL:iLpwgrgtWX@185.121.12.104:50100
-        return `http://${proxy.login}:${proxy.password}@${proxy.ip}:${proxy.port_http}`
-    })
-    logging.success(`Got ${proxies.length} proxies from proxy-seller.io`)
-    return proxies
+        const response = await axios(url)
+        const ipv4ProxiesArray = response.data.data.ipv4
+        const proxies = ipv4ProxiesArray.map((proxy: any) => {
+            //http://services0D3dL:iLpwgrgtWX@185.121.12.104:50100
+            return `http://${proxy.login}:${proxy.password}@${proxy.ip}:${proxy.port_http}`
+        })
+        logging.success(`Got ${proxies.length} proxies from proxy-seller.io`)
+        return proxies
+    } catch (error) {
+        logging.error(`Error getting proxies: ${error}`)
+        return undefined
+    }
 }

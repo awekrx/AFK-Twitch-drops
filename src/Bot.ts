@@ -145,7 +145,9 @@ export default class Bot extends BotLogic {
         });
 
         // give time to load
-        await this.streamPage.waitForSelector(selectors.settingsButton, { timeout: 10_000 })
+        try {
+            await this.streamPage.waitForSelector(selectors.settingsButton, { timeout: 10_000 })
+        } catch { }
     }
 
     async checkAdultStream() {
@@ -209,6 +211,7 @@ export default class Bot extends BotLogic {
             }, selectors.quality);
         } catch {
             logging.error(`${this.user} Quality change error. Current - automatic quality`);
+            throw new Error("Quality change error");
         }
     }
 
