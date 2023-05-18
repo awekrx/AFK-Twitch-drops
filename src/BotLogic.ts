@@ -6,8 +6,6 @@ import env from './env.js';
 export default class BotLogic {
 
     protected browserConfig;
-    protected cookie;
-
     // @ts-ignore
     browser: puppeteer.Browser;
     // @ts-ignore
@@ -20,7 +18,7 @@ export default class BotLogic {
     // @ts-ignore
     checkOnlineInterval: NodeJS.Timeout;
 
-    constructor(token: string, proxy?: string) {
+    constructor(proxy?: string) {
         this.browserConfig = {
             args: [
                 "--disable-dev-shm-usage",
@@ -37,16 +35,6 @@ export default class BotLogic {
 
         if (proxy)
             this.browserConfig.args.push("--proxy-server=" + proxy)
-
-        this.cookie = {
-            domain: ".twitch.tv",
-            httpOnly: false,
-            name: "auth-token",
-            path: "/",
-            secure: true,
-            session: false,
-            value: token,
-        };
 
         this.streamer = config.streamer;
     }

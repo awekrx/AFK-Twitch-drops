@@ -6,8 +6,14 @@ import getProxies, { getAnonProxy } from './Proxies.js'
 import Bot from './Bot.js'
 import env from './env.js'
 
-const tokens: string[] = env.TOKENS
-const proxies: string[] = await getProxies() || env.PROXIES
+const proxiesFromServer: string[] | undefined = await getProxies()
+if (!proxiesFromServer) {
+    logging.error('No proxies found, exiting')
+    process.exit(1)
+}
+const proxies = proxiesFromServer || []
+
+
 let bots: Bot[] = []
 
 const app = express()
@@ -73,12 +79,12 @@ async function stopBots() {
     logging.success('All bots stopped!')
 }
 
-const smallestArray = Math.min(tokens.length, proxies.length + 1) // +1 because we don't need proxy for first bot
+const totalBotsNumber = proxies.length + 1
 async function respawnBots() {
-    logging.important(`Spawning ${smallestArray} bots...`)
-    for (let i = 0; i < smallestArray; i++) {
+    logging.important(`Spawning ${totalBotsNumber} bots...`)
+    for (let i = 0; i < totalBotsNumber; i++) {
         const proxy = await getAnonProxy(proxies, i)
-        const newBot = new Bot(tokens[i], proxy)
+        const newBot = new Bot(proxy)
         bots.push(newBot)
         await newBot.start()
     }
