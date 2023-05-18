@@ -1,0 +1,68 @@
+# github action to build and upload this code to my server
+
+on:
+    push:
+
+jobs:
+    build_and_deploy:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+              node-version: [18.x]
+
+        steps:
+            - uses: actions/checkout@v3
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v3
+              with:
+                node-version: ${{ matrix.node-version }}
+                cache: "npm"
+
+            - name: Install dependencies
+              run: npm install
+
+            # To generate base64 representaion of a file: openssl base64 -A -in .env -out env.txt
+            - name: Decode .env from base64 secrets
+              run: echo ${{secrets.ENV}} | base64 --decode > .env
+
+            - name: Build
+              run: npm run build
+
+            - name: list files
+              run: ls
+            
+            # --- SSH stuff ---
+            - name: Creating ssh dir
+              run: mkdir ~/.ssh
+            - name: Adding Known Hosts
+              run: ssh-keyscan -H ${{secrets.SSH_HOST}} >> ~/.ssh/known_hosts
+
+            - name: Install SSH key
+              uses: shimataro/ssh-key-action@v2
+              with:
+                key: ${{secrets.SSH_KEY}}
+                known_hosts: "Placeholder... Known hosts are added in previous step"
+
+            - name: Test SSH connection
+              run: ssh -T ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}
+
+            # --- Upload files ---
+            - name: Test rsync connection
+              run: rsync --version
+            - run: rsync -azP .env ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP dist ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP package.json ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP package-lock.json ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP resources ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP node_modules ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            
+            # --- Server stuff ---
+            - name: Check node version on the server
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'node -v'"
+            - name: Install dependencies on the server
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'cd ${{secrets.REMOTE_PATH}} && npm i'"
+            - name: Use pm2 to restart the server process
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 restart all'"
+            # Don't forget to add the server to pm2 with the command beforehand:
+            # pm2 start npm --name "demo" -- start
