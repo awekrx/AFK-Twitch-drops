@@ -17,6 +17,7 @@
     "scripts": {
         "start": "tsc && node dist/index.js",
         "dev:ts": "tsc -w",
+        "build": "tsc",
         "dev": "nodemon dist/index.js"
     },
     "author": "awekrx",
