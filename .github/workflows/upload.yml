@@ -64,6 +64,6 @@ jobs:
             - name: Install dependencies on the server
               run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'cd ${{secrets.REMOTE_PATH}} && npm i'"
             - name: Use pm2 to restart the server process
-              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 stop pm2.config.cjs; pm2 start pm2.config.cjs'"
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 stop ${{secrets.REMOTE_PATH}}/pm2.config.cjs; pm2 start ${{secrets.REMOTE_PATH}}/pm2.config.cjs'"
             # Don't forget to add the server to pm2 with the command beforehand:
             # pm2 start npm --name "demo" -- start
