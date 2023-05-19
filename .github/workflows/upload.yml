@@ -65,11 +65,9 @@ jobs:
               run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'cd ${{secrets.REMOTE_PATH}} && npm i'"
             - name: Flush pm2 logs
               run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 flush'"
-            - name: Write path to pm2.config.cjs into file
-              run:  echo ${{secrets.REMOTE_PATH}}pm2.config.cjs > pm2.config.cjs.txt
             - name: Use pm2 to start or restart the server process
               run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 startOrReload ${{secrets.REMOTE_PATH}}pm2.config.cjs'"
             - name: Use pm2 to restart the server process
-              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 log'"
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 status'"
             # Don't forget to add the server to pm2 with the command beforehand:
             # pm2 start npm --name "demo" -- start
