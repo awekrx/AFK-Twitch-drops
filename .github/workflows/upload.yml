@@ -56,6 +56,7 @@ jobs:
             - run: rsync -azP package-lock.json ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
             - run: rsync -azP resources ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
             - run: rsync -azP node_modules ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
+            - run: rsync -azP pm2.config.cjs ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}}:${{secrets.REMOTE_PATH}}
             
             # --- Server stuff ---
             - name: Check node version on the server
@@ -63,6 +64,6 @@ jobs:
             - name: Install dependencies on the server
               run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'cd ${{secrets.REMOTE_PATH}} && npm i'"
             - name: Use pm2 to restart the server process
-              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 restart all'"
+              run: ssh ${{secrets.REMOTE_USER}}@${{secrets.SSH_HOST}} -t "bash -l -c 'pm2 resurrect || pm2 start pm2.config.cjs'"
             # Don't forget to add the server to pm2 with the command beforehand:
             # pm2 start npm --name "demo" -- start
